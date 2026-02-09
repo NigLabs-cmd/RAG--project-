@@ -1,0 +1,7 @@
+Artificial Intelligence (AI) is intelligence demonstrated by machines, as opposed to the natural intelligence displayed by humans or animals.
+Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals.
+As machines become increasingly capable, tasks considered to require "intelligence" are often removed from the definition of AI, a phenomenon known as the AI effect.
+For instance, optical character recognition is frequently excluded from things considered to be AI, having become a routine technology.
+Modern machine learning was born from work on pattern recognition and the theory that computers can learn without being programmed to perform specific tasks.
+The current wave of AI excitement is driven by Generative AI, spearheaded by models like GPT-4, Llama 3, and Claude 3.
+Retrieval-Augmented Generation (RAG) is a technique for enhancing the accuracy and reliability of generative AI models with facts fetched from external sources.
