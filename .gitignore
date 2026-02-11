@@ -3,3 +3,9 @@ __pycache__/
 *.pyc
 vector_db/
 .env
+
+# Personal documentation (not for GitHub)
+Markdown-PDF/
+PHASE1_ENVIRONMENT_SETUP_WALKTHROUGH.md
+VECTORIZATION_WALKTHROUGH.md
+Chunking + Embeddings.md
