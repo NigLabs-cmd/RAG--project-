@@ -217,3 +217,270 @@ def save_processing_summary(
         "chunks_metadata": chunks_file,
         "embedding_report": report_file
     }
+
+
+# ============================================================================
+# FAISS Vector Store Persistence Utilities
+# ============================================================================
+
+def save_vector_store(
+    vector_store,
+    directory: str,
+    index_name: str = "faiss_index",
+    include_stats: bool = True
+) -> Dict[str, str]:
+    """
+    Save FAISS vector store with optional statistics report.
+    
+    Args:
+        vector_store: FAISSVectorStore instance
+        directory: Directory to save files
+        index_name: Base name for index files
+        include_stats: Whether to save statistics report
+        
+    Returns:
+        Dictionary with paths to saved files
+    """
+    logger.info("=" * 60)
+    logger.info("SAVING VECTOR STORE")
+    logger.info("=" * 60)
+    
+    # Save the vector store (index + metadata)
+    vector_store.save(directory, index_name)
+    
+    saved_files = {
+        "index": os.path.join(directory, f"{index_name}.faiss"),
+        "metadata": os.path.join(directory, f"{index_name}_metadata.json")
+    }
+    
+    # Optionally save statistics
+    if include_stats:
+        stats_path = save_vector_store_stats(vector_store, directory, index_name)
+        saved_files["stats"] = stats_path
+    
+    logger.info("=" * 60)
+    logger.info("OK: Vector store saved successfully")
+    logger.info("=" * 60)
+    
+    return saved_files
+
+
+def load_vector_store(
+    directory: str,
+    index_name: str = "faiss_index",
+    dimension: int = 384,
+    validate: bool = True
+):
+    """
+    Load FAISS vector store from disk with optional validation.
+    
+    Args:
+        directory: Directory containing saved files
+        index_name: Base name for index files
+        dimension: Expected embedding dimension
+        validate: Whether to validate loaded index
+        
+    Returns:
+        Loaded FAISSVectorStore instance
+    """
+    from src.vector_store.faiss_store import FAISSVectorStore
+    
+    logger.info("=" * 60)
+    logger.info("LOADING VECTOR STORE")
+    logger.info("=" * 60)
+    
+    # Create new vector store instance
+    vector_store = FAISSVectorStore(dimension=dimension)
+    
+    # Load from disk
+    vector_store.load(directory, index_name)
+    
+    # Validate if requested
+    if validate:
+        is_valid, issues = validate_vector_store(vector_store)
+        if not is_valid:
+            logger.warning(f"Validation issues found: {issues}")
+        else:
+            logger.info("OK: Vector store validation passed")
+    
+    logger.info("=" * 60)
+    logger.info("OK: Vector store loaded successfully")
+    logger.info("=" * 60)
+    
+    return vector_store
+
+
+def save_vector_store_stats(
+    vector_store,
+    directory: str,
+    index_name: str = "faiss_index"
+) -> str:
+    """
+    Save vector store statistics to a JSON file.
+    
+    Args:
+        vector_store: FAISSVectorStore instance
+        directory: Directory to save stats
+        index_name: Base name for stats file
+        
+    Returns:
+        Path to saved stats file
+    """
+    os.makedirs(directory, exist_ok=True)
+    
+    stats = vector_store.get_statistics()
+    stats["saved_at"] = datetime.now().isoformat()
+    
+    stats_path = os.path.join(directory, f"{index_name}_stats.json")
+    
+    with open(stats_path, 'w', encoding='utf-8') as f:
+        json.dump(stats, f, indent=2, ensure_ascii=False)
+    
+    logger.info(f"OK: Saved vector store stats to: {stats_path}")
+    
+    return stats_path
+
+
+def validate_vector_store(vector_store) -> tuple[bool, List[str]]:
+    """
+    Validate vector store integrity.
+    
+    Args:
+        vector_store: FAISSVectorStore instance
+        
+    Returns:
+        Tuple of (is_valid, list_of_issues)
+    """
+    issues = []
+    
+    # Check if index exists
+    if vector_store.index is None:
+        issues.append("Index is None")
+        return False, issues
+    
+    # Check if index has vectors
+    if vector_store.index.ntotal == 0:
+        issues.append("Index is empty (0 vectors)")
+    
+    # Check metadata consistency
+    if len(vector_store.metadata_map) != vector_store.index.ntotal:
+        issues.append(
+            f"Metadata count ({len(vector_store.metadata_map)}) "
+            f"doesn't match index size ({vector_store.index.ntotal})"
+        )
+    
+    # Check dimension
+    expected_dim = vector_store.dimension
+    actual_dim = vector_store.index.d
+    if expected_dim != actual_dim:
+        issues.append(
+            f"Dimension mismatch: expected {expected_dim}, got {actual_dim}"
+        )
+    
+    # Check ID counter
+    if vector_store.id_counter < len(vector_store.metadata_map):
+        issues.append(
+            f"ID counter ({vector_store.id_counter}) is less than "
+            f"metadata count ({len(vector_store.metadata_map)})"
+        )
+    
+    is_valid = len(issues) == 0
+    
+    return is_valid, issues
+
+
+def get_vector_store_info(directory: str, index_name: str = "faiss_index") -> Dict[str, Any]:
+    """
+    Get information about a saved vector store without loading it.
+    
+    Args:
+        directory: Directory containing saved files
+        index_name: Base name for index files
+        
+    Returns:
+        Dictionary with vector store information
+    """
+    info = {
+        "directory": directory,
+        "index_name": index_name,
+        "files_exist": {},
+        "metadata": None,
+        "stats": None
+    }
+    
+    # Check which files exist
+    index_path = os.path.join(directory, f"{index_name}.faiss")
+    metadata_path = os.path.join(directory, f"{index_name}_metadata.json")
+    stats_path = os.path.join(directory, f"{index_name}_stats.json")
+    
+    info["files_exist"]["index"] = os.path.exists(index_path)
+    info["files_exist"]["metadata"] = os.path.exists(metadata_path)
+    info["files_exist"]["stats"] = os.path.exists(stats_path)
+    
+    # Load metadata if exists
+    if info["files_exist"]["metadata"]:
+        try:
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+                info["metadata"] = {
+                    "dimension": metadata.get("dimension"),
+                    "total_vectors": metadata.get("id_counter"),
+                    "created_at": metadata.get("created_at"),
+                    "version": metadata.get("version"),
+                    "saved_at": metadata.get("saved_at")
+                }
+        except Exception as e:
+            logger.warning(f"Could not load metadata: {e}")
+    
+    # Load stats if exists
+    if info["files_exist"]["stats"]:
+        try:
+            with open(stats_path, 'r', encoding='utf-8') as f:
+                info["stats"] = json.load(f)
+        except Exception as e:
+            logger.warning(f"Could not load stats: {e}")
+    
+    return info
+
+
+def create_vector_store_backup(
+    source_dir: str,
+    backup_dir: str,
+    index_name: str = "faiss_index"
+) -> str:
+    """
+    Create a backup of a vector store.
+    
+    Args:
+        source_dir: Source directory containing vector store
+        backup_dir: Backup directory
+        index_name: Base name for index files
+        
+    Returns:
+        Path to backup directory
+    """
+    import shutil
+    
+    # Create backup directory with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = os.path.join(backup_dir, f"backup_{timestamp}")
+    os.makedirs(backup_path, exist_ok=True)
+    
+    # Copy files
+    files_to_backup = [
+        f"{index_name}.faiss",
+        f"{index_name}_metadata.json",
+        f"{index_name}_stats.json"
+    ]
+    
+    copied_files = []
+    for filename in files_to_backup:
+        source_file = os.path.join(source_dir, filename)
+        if os.path.exists(source_file):
+            dest_file = os.path.join(backup_path, filename)
+            shutil.copy2(source_file, dest_file)
+            copied_files.append(filename)
+    
+    logger.info(f"OK: Created backup with {len(copied_files)} files at: {backup_path}")
+    
+    return backup_path

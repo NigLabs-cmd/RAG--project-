@@ -1,4 +1,9 @@
-from langchain.chains import RetrievalQA
+try:
+    from langchain.chains import RetrievalQA
+except ImportError:
+    # Fallback for newer LangChain versions
+    from langchain.chains.retrieval_qa.base import RetrievalQA
+    
 from langchain.prompts import PromptTemplate
 from config.settings import RETRIEVAL_K
 
