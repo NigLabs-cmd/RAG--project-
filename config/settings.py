@@ -16,3 +16,9 @@ EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 RETRIEVAL_K = 3  # Number of documents to retrieve
+
+# RAG Chain Parameters
+MIN_SIMILARITY_THRESHOLD = 0.5  # Below this = "answer not found"
+MAX_CONTEXT_DOCS = 3            # Limit context size for LLM
+CITATION_REQUIRED = True        # Enforce citation extraction
+LLM_TEMPERATURE = 0             # Deterministic for factual Q&A
