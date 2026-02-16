@@ -47,8 +47,15 @@ class RAGResponse:
         if self.sources:
             lines.append(f"\nSources ({len(self.sources)}):")
             for idx, source in enumerate(self.sources):
-                text_preview = source.get('text', source.get('page_content', ''))[:100]
-                score = source.get('score', 'N/A')
+                # Handle both dict and object types
+                if isinstance(source, dict):
+                    text_preview = source.get('text', source.get('page_content', ''))[:100]
+                    score = source.get('score', 'N/A')
+                else:
+                    # For objects, try text first, then page_content
+                    text = getattr(source, 'text', None) or getattr(source, 'page_content', '')
+                    text_preview = str(text)[:100]
+                    score = getattr(source, 'score', 'N/A')
                 lines.append(f"  [{idx+1}] {text_preview}... (score: {score})")
         
         return "\n".join(lines)

@@ -124,10 +124,31 @@ class RAGChain:
         # Convert to dictionary format for easier handling
         docs = []
         for result in results:
+            # Handle different result formats
+            if hasattr(result, 'page_content'):
+                text = result.page_content
+            elif hasattr(result, 'text'):
+                text = result.text
+            elif isinstance(result, dict):
+                text = result.get('text', result.get('page_content', ''))
+            else:
+                text = str(result)
+            
+            # Get metadata
+            if hasattr(result, 'metadata'):
+                metadata = result.metadata
+                score = metadata.get('score', 0.0)
+            elif isinstance(result, dict):
+                metadata = result.get('metadata', {})
+                score = result.get('score', 0.0)
+            else:
+                metadata = {}
+                score = 0.0
+            
             doc_dict = {
-                'text': result.page_content,
-                'metadata': result.metadata,
-                'score': result.metadata.get('score', 0.0) if hasattr(result, 'metadata') else 0.0
+                'text': text,
+                'metadata': metadata,
+                'score': score
             }
             docs.append(doc_dict)
         
