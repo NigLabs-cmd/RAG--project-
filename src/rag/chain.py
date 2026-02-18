@@ -26,7 +26,7 @@ class RAGChain:
         self,
         retriever,
         llm,
-        min_similarity: float = 0.5,
+        min_similarity: float = 0.15,
         max_docs: int = 3,
         include_metadata: bool = False
     ):
@@ -169,6 +169,8 @@ class RAGChain:
         
         # Get maximum similarity score
         max_score = max([doc.get('score', 0.0) for doc in retrieved_docs])
+        
+        print(f"DEBUG _check_confidence: max_score={max_score:.4f}, min_similarity={self.min_similarity:.4f}, will_answer={max_score >= self.min_similarity}")
         
         return max_score >= self.min_similarity
     

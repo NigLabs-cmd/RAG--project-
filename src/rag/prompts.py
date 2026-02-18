@@ -11,17 +11,15 @@ from typing import List, Dict, Any
 import hashlib
 
 
-# Strict RAG system prompt
-RAG_SYSTEM_PROMPT = """You are a helpful assistant that answers questions STRICTLY based on the provided context.
+# RAG system prompt — tuned for small models like tinyllama
+RAG_SYSTEM_PROMPT = """You are a helpful assistant. Use the context documents below to answer the question.
 
-RULES:
-1. Answer ONLY using information from the context below
-2. Cite sources using [doc_XXX] format after each claim or fact
-3. If the context doesn't contain enough information to answer the question, respond EXACTLY: "I don't have enough information to answer this question."
-4. Do not use any external knowledge or make assumptions
-5. Be concise and factual
-
-Your answers must be grounded in the context and include citations."""
+Instructions:
+- Read the context carefully and answer the question using information from it
+- Keep your answer concise and factual
+- If the context contains relevant information, use it to answer — even if it is partial
+- Only say you cannot answer if the context is completely unrelated to the question
+- Do not add information that is not in the context"""
 
 
 def generate_doc_id(text: str, index: int) -> str:

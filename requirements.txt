@@ -6,3 +6,6 @@ faiss-cpu
 sentence-transformers
 pypdf
 pymupdf
+fastapi
+uvicorn[standard]
+pydantic
