@@ -7,7 +7,7 @@ DB_DIR = os.path.join(BASE_DIR, "vector_db")
 
 # Models
 ## LLM
-LLM_MODEL = "tinyllama"  # Smaller model for low-RAM systems (1.1B params)
+LLM_MODEL = "phi3:mini"  # 3.8B params — better answer quality than tinyllama (already installed)
 
 ## Embedding
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"

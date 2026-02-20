@@ -131,7 +131,8 @@ async def startup_event():
         print("Initializing retriever...")
         retriever = SemanticRetriever(
             vector_store=vector_store,
-            default_k=RETRIEVAL_K
+            default_k=RETRIEVAL_K,
+            default_min_score=MIN_SIMILARITY_THRESHOLD  # Filter out low-relevance chunks at retrieval time
         )
 
         # Initialize LLM
@@ -180,7 +181,7 @@ async def root():
             "instructions": [
                 "Ensure vector store exists (run pipeline_demo.py)",
                 "Ensure Ollama is running (ollama serve)",
-                "Ensure tinyllama model is available (ollama pull tinyllama)"
+                "Ensure phi3:mini model is available (ollama pull phi3:mini)"
             ]
         }
 
@@ -376,6 +377,7 @@ async def delete_document(filename: str):
 
         # Rebuild the FAISS index without the deleted document's vectors
         new_store = type(vector_store)(dimension=vector_store.dimension)
+        new_store._create_index()  # Always initialize — even if result is an empty index
 
         if ids_to_keep:
             # Reconstruct vectors for kept IDs
@@ -385,7 +387,6 @@ async def delete_document(filename: str):
                 dtype=np.float32
             )
             # Add them back (already normalized)
-            new_store._create_index()
             new_store.index.add(vectors)
             # Restore metadata
             for new_idx, old_id in enumerate(kept_ids_sorted):
@@ -394,6 +395,11 @@ async def delete_document(filename: str):
 
         # Replace global vector store
         vector_store = new_store
+
+        # CRITICAL: also update the retriever inside rag_chain — otherwise it still
+        # searches the OLD in-memory index and returns results from deleted documents!
+        if rag_chain is not None and rag_chain.retriever is not None:
+            rag_chain.retriever.vector_store = new_store
 
         # Persist updated store
         save_vector_store(vector_store, DB_DIR, "rag_index", include_stats=False)
@@ -441,11 +447,6 @@ async def query(request: QueryRequest):
         rag_response: RAGResponse = rag_chain.query(request.question)
         query_time = time.time() - start_time
 
-        # Debug: Check what sources actually are
-        print(f"DEBUG: rag_response.sources type: {type(rag_response.sources)}")
-        if rag_response.sources:
-            print(f"DEBUG: First source type: {type(rag_response.sources[0])}")
-            print(f"DEBUG: First source: {rag_response.sources[0]}")
 
         # Format sources
         sources = []
@@ -485,11 +486,28 @@ async def query(request: QueryRequest):
         ]
         answer_text = rag_response.answer
         if has_answer and any(p in answer_text.lower() for p in FALLBACK_PHRASES):
-            # Build a direct answer from the top source chunks
-            top_texts = [s.text[:300].strip() for s in sources[:2] if s.text]
-            if top_texts:
-                answer_text = "Based on the retrieved documents:\n\n" + "\n\n".join(top_texts)
-                print(f"DEBUG: Replaced fallback answer with source text")
+            print(f"DEBUG: Replaced fallback answer with structured source text")
+            top_sources = [s for s in sources[:3] if s.text]
+            if top_sources:
+                # Build a properly structured markdown response from source chunks
+                filenames = list({s.metadata.get("source", "the document") for s in top_sources if s.metadata})
+                src_label = filenames[0] if len(filenames) == 1 else "the uploaded documents"
+
+                # Intro line
+                lines = [f"Based on **{src_label}**, here is the relevant information:\n"]
+
+                # Bullet points — one per source chunk, cleaned up
+                for i, s in enumerate(top_sources, 1):
+                    chunk = s.text.strip()
+                    # Break chunk into sentences and list them cleanly
+                    sentences = [sent.strip() for sent in chunk.replace("\n", " ").split(". ") if sent.strip()]
+                    if sentences:
+                        lines.append(f"- " + ". ".join(sentences[:4]) + ("." if not sentences[0].endswith(".") else ""))
+
+                # Conclusion line
+                lines.append(f"\n*The above information was retrieved directly from the document with a confidence score of {rag_response.confidence:.0%}.*")
+
+                answer_text = "\n".join(lines)
 
         response = QueryResponse(
             answer=answer_text,

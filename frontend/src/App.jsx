@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import './index.css';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -282,7 +283,22 @@ function App() {
                         </span>
                       </div>
 
-                      <div className="answer-text">{message.content}</div>
+                      <div className="answer-text">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p style={{ margin: '0 0 0.6em 0' }}>{children}</p>,
+                            ul: ({ children }) => <ul style={{ paddingLeft: '1.4em', margin: '0.4em 0' }}>{children}</ul>,
+                            ol: ({ children }) => <ol style={{ paddingLeft: '1.4em', margin: '0.4em 0' }}>{children}</ol>,
+                            li: ({ children }) => <li style={{ marginBottom: '0.3em' }}>{children}</li>,
+                            strong: ({ children }) => <strong style={{ color: 'var(--accent)' }}>{children}</strong>,
+                            h1: ({ children }) => <h3 style={{ margin: '0.5em 0 0.3em' }}>{children}</h3>,
+                            h2: ({ children }) => <h4 style={{ margin: '0.5em 0 0.3em' }}>{children}</h4>,
+                            h3: ({ children }) => <h5 style={{ margin: '0.5em 0 0.3em' }}>{children}</h5>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
 
                       {message.citations && message.citations.length > 0 && (
                         <div className="citations">
