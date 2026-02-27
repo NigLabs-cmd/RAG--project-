@@ -149,19 +149,6 @@ async def startup_event():
             max_docs=MAX_CONTEXT_DOCS
         )
 
-        # Monkey-patch _check_confidence to always use the live threshold value.
-        # This is needed because uvicorn --reload may not reload src/rag/chain.py
-        # when only settings.py or app.py changes.
-        def _patched_check_confidence(self_chain, retrieved_docs):
-            if not retrieved_docs:
-                return False
-            max_score = max(doc.get('score', 0.0) for doc in retrieved_docs)
-            threshold = MIN_SIMILARITY_THRESHOLD
-            print(f"DEBUG confidence check: max_score={max_score:.4f}, threshold={threshold:.4f}, pass={max_score >= threshold}")
-            return max_score >= threshold
-
-        import types
-        rag_chain._check_confidence = types.MethodType(_patched_check_confidence, rag_chain)
         print(f"RAG system initialized successfully! (threshold={MIN_SIMILARITY_THRESHOLD})")
 
 

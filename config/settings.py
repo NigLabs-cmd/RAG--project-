@@ -18,7 +18,7 @@ CHUNK_OVERLAP = 50
 RETRIEVAL_K = 3  # Number of documents to retrieve
 
 # RAG Chain Parameters
-MIN_SIMILARITY_THRESHOLD = 0.2  # Lowered from 0.5 — FAISS inner-product scores for real PDFs are ~0.2-0.4
+MIN_SIMILARITY_THRESHOLD = 0.03  # FAISS inner-product (cosine) scores for real PDFs are ~0.05-0.15
 MAX_CONTEXT_DOCS = 3            # Limit context size for LLM
 CITATION_REQUIRED = True        # Enforce citation extraction
 LLM_TEMPERATURE = 0             # Deterministic for factual Q&A

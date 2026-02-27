@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './index.css';
 
@@ -64,10 +64,40 @@ function App() {
   };
 
   const getConfidenceLevel = (confidence) => {
-    if (confidence >= 0.7) return 'high';
-    if (confidence >= 0.4) return 'medium';
+    // Rescaled for FAISS inner-product scores (real range: 0.03–0.20)
+    if (confidence >= 0.12) return 'high';
+    if (confidence >= 0.06) return 'medium';
     return 'low';
   };
+
+  const getConfidenceLabel = (confidence) => {
+    if (confidence >= 0.12) return 'Strong match';
+    if (confidence >= 0.06) return 'Moderate match';
+    return 'Weak match';
+  };
+
+  // Animated loading messages
+  const loadingMessages = [
+    'Searching knowledge base…',
+    'Analyzing relevant chunks…',
+    'Generating answer with AI…',
+    'Almost there — finalizing response…',
+  ];
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  useEffect(() => {
+    if (!loading) { setLoadingMsgIdx(0); return; }
+    const timer = setInterval(() => {
+      setLoadingMsgIdx(prev => Math.min(prev + 1, loadingMessages.length - 1));
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  // Collapsible sources state (per-message index)
+  const [expandedSources, setExpandedSources] = useState({});
+  const toggleSources = useCallback((msgIdx) => {
+    setExpandedSources(prev => ({ ...prev, [msgIdx]: !prev[msgIdx] }));
+  }, []);
 
   const handleUploadClick = () => {
     setUploadError(null);
@@ -271,7 +301,7 @@ function App() {
                     <div className="assistant-response">
                       <div className="response-header">
                         <span className={`confidence-badge confidence-${getConfidenceLevel(message.confidence)}`}>
-                          Confidence: {(message.confidence * 100).toFixed(1)}%
+                          {getConfidenceLabel(message.confidence)}
                         </span>
                         {!message.hasAnswer && (
                           <span className="confidence-badge confidence-low">
@@ -313,25 +343,33 @@ function App() {
 
                       {message.sources && message.sources.length > 0 && (
                         <div className="sources">
-                          <div className="sources-title">
-                            📄 Sources ({message.sources.length})
-                          </div>
-                          {message.sources.map((source, idx) => (
-                            <div key={idx} className="source-item">
-                              {source.metadata?.source && (
-                                <div className="source-filename">
-                                  📎 {source.metadata.source}
-                                  {source.metadata.page && ` · page ${source.metadata.page}`}
+                          <button
+                            className="sources-toggle"
+                            onClick={() => toggleSources(index)}
+                          >
+                            <span className={`sources-chevron ${expandedSources[index] ? 'open' : ''}`}>▶</span>
+                            📄 {message.sources.length} source{message.sources.length > 1 ? 's' : ''} retrieved
+                          </button>
+                          {expandedSources[index] && (
+                            <div className="sources-list">
+                              {message.sources.map((source, idx) => (
+                                <div key={idx} className="source-item">
+                                  {source.metadata?.source && (
+                                    <div className="source-filename">
+                                      📎 {source.metadata.source}
+                                      {source.metadata.page && ` · page ${source.metadata.page}`}
+                                    </div>
+                                  )}
+                                  <div className="source-text">
+                                    {source.text.substring(0, 200)}…
+                                  </div>
+                                  <div className="source-score">
+                                    Similarity: {(source.score * 100).toFixed(1)}%
+                                  </div>
                                 </div>
-                              )}
-                              <div className="source-text">
-                                {source.text.substring(0, 200)}…
-                              </div>
-                              <div className="source-score">
-                                Similarity: {(source.score * 100).toFixed(1)}%
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>
@@ -343,7 +381,12 @@ function App() {
             {loading && (
               <div className="loading">
                 <div className="spinner" />
-                <span>Searching knowledge base…</span>
+                <div className="loading-content">
+                  <span className="loading-text">{loadingMessages[loadingMsgIdx]}</span>
+                  <div className="loading-bar">
+                    <div className="loading-bar-fill" />
+                  </div>
+                </div>
               </div>
             )}
 
