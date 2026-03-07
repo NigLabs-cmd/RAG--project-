@@ -9,12 +9,14 @@ function App() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('rag-theme') || 'dark');
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const dragLeaveTimer = useRef(null);
 
   // Load existing documents on mount
   useEffect(() => {
@@ -25,6 +27,17 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Auto-dismiss system messages after 5 seconds
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.type === 'system') {
+      const timer = setTimeout(() => {
+        setMessages(prev => prev.filter(m => m !== lastMsg));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [messages]);
 
   const fetchDocuments = async () => {
     try {
@@ -51,7 +64,7 @@ function App() {
       await fetchDocuments();
       setMessages(prev => [...prev, {
         type: 'system',
-        content: `🗑️ "${docName}" removed from knowledge base.`,
+        content: `"${docName}" has been removed from the knowledge base.`,
         timestamp: new Date(),
       }]);
     } catch (err) {
@@ -60,7 +73,11 @@ function App() {
   };
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('rag-theme', next);
+      return next;
+    });
   };
 
   const getConfidenceLevel = (confidence) => {
@@ -104,12 +121,9 @@ function App() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
+  // Shared upload logic used by both button and drag-and-drop
+  const processFile = async (file) => {
     if (!file) return;
-
-    // Reset input so same file can be re-uploaded if needed
-    e.target.value = '';
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setUploadError('Only PDF files are supported.');
@@ -134,10 +148,8 @@ function App() {
       }
 
       const data = await res.json();
-      // Refresh document list from server
       await fetchDocuments();
 
-      // Show a system message in chat
       setMessages(prev => [...prev, {
         type: 'system',
         content: `✅ "${data.filename}" uploaded — ${data.chunks_added} chunks added to knowledge base.`,
@@ -145,11 +157,66 @@ function App() {
       }]);
 
     } catch (err) {
-      setUploadError(err.message);
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setUploadError('Cannot connect to backend. Make sure the backend server is running on port 8000.');
+      } else {
+        setUploadError(err.message);
+      }
     } finally {
       setUploading(false);
     }
   };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    processFile(file);
+  };
+
+  // Drag-and-drop handlers (timeout-debounced for reliability)
+  const handleDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only react to file drags, not text selections
+    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+      clearTimeout(dragLeaveTimer.current);
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Debounce: only hide overlay if no new dragenter fires within 100ms
+    // This handles the rapid enter/leave events from nested elements
+    dragLeaveTimer.current = setTimeout(() => {
+      setIsDragging(false);
+    }, 100);
+  }, []);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Set copy cursor so the user sees a "+" icon
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    clearTimeout(dragLeaveTimer.current);
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  }, []);
+
+  // Clean up drag timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(dragLeaveTimer.current);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -200,7 +267,13 @@ function App() {
   };
 
   return (
-    <div className={`app ${theme}`}>
+    <div
+      className={`app ${theme}`}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -210,11 +283,28 @@ function App() {
         onChange={handleFileChange}
       />
 
+      {/* Drag-and-drop overlay — captures events directly for reliable drops */}
+      {isDragging && (
+        <div
+          className="drop-overlay"
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className="drop-overlay-content">
+            <div className="drop-overlay-icon">📄</div>
+            <div className="drop-overlay-title">Drop your PDF here</div>
+            <div className="drop-overlay-subtitle">Release to upload and process</div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
           <h2>RAG Assistant</h2>
-          <p className="sidebar-subtitle">Document Q&amp;A</p>
+          <p className="sidebar-subtitle">Document Q&A</p>
         </div>
 
         <button
@@ -286,7 +376,7 @@ function App() {
           <div className="messages">
             {messages.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-state-icon">💬</div>
+                <div className="empty-state-icon">📖</div>
                 <h3>Start a conversation</h3>
                 <p>Upload a PDF using the sidebar and ask questions about its content.</p>
               </div>
