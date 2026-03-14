@@ -1,6 +1,6 @@
 # Local CPU-Only RAG System
 
-A modular, Python-based Retrieval Augmented Generation (RAG) system running locally using Ollama and FAISS.
+A modular, Python-based Retrieval Augmented Generation (RAG) system running locally using Ollama and FAISS, complete with a FastAPI backend and a React (Vite) frontend.
 
 ## Features
 - **Privacy-focused**: Runs entirely on your local machine.
@@ -8,123 +8,93 @@ A modular, Python-based Retrieval Augmented Generation (RAG) system running loca
 - **Lightweight**: Optimized for 8GB RAM systems.
 - **Grounded Answers**: Strict context-only answering with citations.
 - **Smart Fallback**: Returns "I don't know" when confidence is low.
+- **Modern UI**: Interactive React frontend with 3D animations and robust document management.
 
-## What's New - Phase 4 ✨
-- **RAG Pipeline**: End-to-end question answering with Ollama
-- **Citation System**: Automatic source citation in `[doc_XXX]` format
-- **Confidence-Based Fallback**: Refuses to answer with poor context
-- **Edge Case Handling**: Graceful handling of errors and edge cases
+## What's New - Phase 5 ✨
+- **Full-Stack Architecture**: Segmented into a FastAPI backend and a beautiful React frontend.
+- **Interactive Landing Page**: Modern, animated 3D landing page built with React.
+- **Document Upload API**: Upload and process PDFs directly from the web UI.
+- **Streaming & Dynamic Context**: Real-time response generation (backend ready) and intelligent confidence scoring.
+- **Improved Retrieval**: Threshold-based document filtering at retrieval time.
 
 ## Setup
 
-1. **Install Ollama**
-   - Download from [ollama.com](https://ollama.com).
-   - Pull a model: `ollama pull tinyllama`
-   - Start Ollama: `ollama serve`
+### Prerequisites
+1. **Python 3.10+** installed
+2. **Node.js 18+** and npm installed
+3. **Ollama** installed ([ollama.com](https://ollama.com))
 
-2. **Install Dependencies**
-   ```bash
-   python -m venv venv
-   venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-3. **Add Documents**
-   - Place your PDF or TXT files in the `data/` folder.
-
-## Usage
-
-### Option 1: Interactive Interface
-Run the main interface:
+### 1. Backend Setup
 ```bash
-python main.py
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On Unix or MacOS:
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-- **Ingest Documents**: Select option 1 to process files and create the vector database.
-- **Query**: Select option 2 to ask questions about your documents.
-
-### Option 2: RAG Demo
-Run the RAG pipeline demo:
+### 2. Ollama Setup
+Start Ollama and pull your preferred model:
 ```bash
-python rag_demo.py
+ollama serve
+ollama pull tinyllama
 ```
 
-This demonstrates:
-- Semantic document retrieval
-- Context-only answering with citations
-- Confidence-based fallback handling
+## Running the Complete System
 
-### Option 3: Integration Tests
-Run tests without Ollama:
+The system now runs as a client-server web application. Follow [HOW_TO_RUN.md](docs/HOW_TO_RUN.md) for full details.
+
+### 1. Start the Backend Server
+Open a terminal and run:
 ```bash
-python test_integration.py
+cd backend
+python app.py
 ```
+- API Documentation available at: `http://localhost:8000/docs`
+- Health Check available at: `http://localhost:8000/health`
+
+### 2. Start the Frontend
+Open a **new terminal** and run:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Navigate your browser to **http://localhost:5173** to see the interactive application!
+
+## Legacy & Demo Usage
+
+You can still use the CLI components if you prefer:
+- **Interactive CLI**: `python main.py`
+- **RAG Demo**: `python rag_demo.py` (Demonstrates semantic retrieval & confidence fallback)
 
 ## Project Structure
-- `src/`: Core logic
-  - `ingestion/`: Document loading and chunking
-  - `embeddings/`: HuggingFace embedding models
-  - `vector_store/`: FAISS vector database
-  - `retrieval/`: Semantic search
-  - `rag/`: RAG pipeline with Ollama (NEW)
-  - `llm/`: Ollama LLM integration
-- `config/`: Settings and paths
-- `scripts/`: Standalone scripts
-- `data/`: Your documents
-- `vector_db/`: Persisted vector store
+- `backend/`: FastAPI application (`app.py`), APIs for query and document upload.
+- `frontend/`: React + Vite web application (interactive QA interface, landing page, animations).
+- `src/`: Core pipeline logic (ingestion, embeddings, vector_store, retrieval, rag, llm).
+- `config/`: Configuration settings and paths.
+- `scripts/`: Standalone utilities and demo scripts.
+- `data/`: Folder for manual document ingestion via CLI.
+- `docs/`: Expanded documentation (see `HOW_TO_RUN.md`).
 
 ## RAG Pipeline Features
 
 ### Strict Prompt Engineering
-- Answers ONLY from provided context
-- Cites sources using `[doc_XXX]` format
-- Returns "I don't have enough information" when uncertain
+- Answers ONLY from provided context, citing sources in a structured format (`[doc_XXX]`).
+- Returns "I don't have enough information" when uncertain to prevent hallucinations.
 
-### Citation System
-- Automatic citation extraction
-- Validation against retrieved documents
-- Coverage metrics
-
-### Confidence-Based Fallback
-- Similarity threshold: 0.5 (configurable)
-- Refuses to answer with low-quality context
-- Prevents hallucination
-
-## Example Query
-
-```
-Query: What is machine learning?
-
-Answer: Machine learning is a subset of artificial intelligence [doc_000].
-
-Sources:
-  - [doc_000] Machine learning is a subset of AI... (similarity: 0.85)
-
-Confidence: 0.85
-Citations: ['doc_000']
-```
-
-## Testing
-
-Run the test suites:
-```bash
-# Core RAG tests
-pytest test_rag.py -v
-
-# Edge case tests
-pytest test_rag_edge_cases.py -v
-
-# Integration tests (no Ollama required)
-python test_integration.py
-```
+### Citation & Confidence System
+- Evaluates similarity score threshold (default: 0.5) to decide on answer quality.
+- Automatic citation extraction validated against retrieved documents.
 
 ## Configuration
 
-Edit `config/settings.py` to customize:
-- `MIN_SIMILARITY_THRESHOLD`: Confidence threshold (default: 0.5)
-- `MAX_CONTEXT_DOCS`: Max documents in context (default: 3)
-- `LLM_MODEL`: Ollama model name (default: tinyllama)
-- `CHUNK_SIZE`: Text chunk size (default: 500)
+Edit `config/settings.py` to customize system parameters:
+- `MIN_SIMILARITY_THRESHOLD`: Confidence threshold (e.g., 0.5)
+- `MAX_CONTEXT_DOCS`: Max number of source chunks used (e.g., 3)
+- `LLM_MODEL`: Ollama model name (default: `tinyllama` or `phi3:mini`)
+- `CHUNK_SIZE`: Number of tokens per chunk (default: 500)
 
 ## Troubleshooting
 
@@ -132,13 +102,11 @@ Edit `config/settings.py` to customize:
 - Make sure Ollama is running: `ollama serve`
 - Pull the model: `ollama pull tinyllama`
 
+**Backend Connection Issues:**
+- Check that the FastAPI backend is running on `http://localhost:8000`
+- See `docs/HOW_TO_RUN.md` for full troubleshooting steps.
+
 **Low-quality answers:**
-- Increase `MIN_SIMILARITY_THRESHOLD` for stricter filtering
-- Add more relevant documents to your database
-- Try a larger LLM model
-
-**Out of memory:**
-- Use smaller model: `tinyllama` (1.1B params)
-- Reduce `MAX_CONTEXT_DOCS`
-- Reduce `CHUNK_SIZE`
-
+- Increase `MIN_SIMILARITY_THRESHOLD` for stricter filtering.
+- Upload more relevant PDFs via the frontend UI.
+- Try a more capable LLM model (e.g., `llama3` instead of `tinyllama`).
