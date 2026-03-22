@@ -197,10 +197,10 @@ class RAGChain:
             return answer.strip()
         
         except Exception as e:
-            # Handle LLM errors gracefully
-            error_msg = f"Error generating answer: {e}"
+            # Handle LLM errors gracefully by exposing them
+            error_msg = f"LLM Error: {e}"
             print(f"WARNING: {error_msg}")
-            return create_fallback_response()
+            return f"An error occurred while generating the answer: {error_msg}"
     
     def _parse_response(
         self,
